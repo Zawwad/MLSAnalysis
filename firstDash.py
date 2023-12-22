@@ -15,7 +15,7 @@ newIndexInt = newIndex.select_dtypes(include = 'int64')
 
 ## club count plot
 
-fig1 = px.histogram(clubsDF, x = 'Club', title = 'Count of Clubs')
+fig1 = px.histogram(clubsDF, x = 'Club')
 fig1.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,75,154,0.4)', font_color='white', yaxis_title='Count', title_x = 0.5)
 
 
@@ -120,13 +120,43 @@ initLayout = html.Div([
     html.Br(),
     html.Br(),
     
+    html.H3('Count of Clubs', style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    
+    dcc.Graph(figure = fig1),
+    
+    html.Br(),
+    html.Br(),
+    
+    html.H3('All Numeric Visualizations', style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    
+    dcc.Dropdown(id = "x_axis",
+        options = [{"label" : col, "value" : col} for col in newIndexInt.columns[1:]],
+        value = newIndexInt.columns[1],
+        style={'color': 'black'},
+    ),
+    
+    dcc.Graph(id = "plot"),
+
+    html.Br(),
+    html.Br(),
+    
+    html.H4(oneGoalText, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    
     html.Div([
-        
-        dcc.Graph(figure = fig1),
-        
-        dcc.Graph(figure = fig2),
+    
+        dcc.Graph(figure = oneGoalPlotT),
+        dcc.Graph(figure = oneGoalPlotB),
         
     ], style = {'display': 'flex', "justifyContent": "center"}),
+    
+    
+], style={'margin': '20px'})
+
+assignLayout = html.Div([
+
+    html.H1('Player Performance', style={'textAlign': 'center'}),
+
+    dcc.Link('Go to Club Performance', href = '/initLayout', style={"display": "flex", "justifyContent": "center"}),
 
     html.Br(),
     html.Br(),
@@ -146,34 +176,6 @@ initLayout = html.Div([
     html.Br(),
     html.Br(),
     
-    html.H3('All Numeric Visualizations', style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
-    
-    dcc.Dropdown(id = "x_axis",
-        options = [{"label" : col, "value" : col} for col in newIndexInt.columns[1:]],
-        value = newIndexInt.columns[1],
-        style={'color': 'black'},
-    ),
-    
-    dcc.Graph(id = "plot"),
-    
-], style={'margin': '20px'})
-
-assignLayout = html.Div([
-
-    html.H1('Player Performance', style={'textAlign': 'center'}),
-
-    dcc.Link('Go to Club Performance', href = '/initLayout', style={"display": "flex", "justifyContent": "center"}),
-
-    html.Br(),
-    html.Br(),
-
-    html.H4(mostAText, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
-    
-    dcc.Graph(figure = assistYearPlot),
-
-    html.Br(),
-    html.Br(),
-    
     html.H4(mostYCText, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
     
     dcc.Graph(figure = YCPlayerPlot),
@@ -188,14 +190,18 @@ assignLayout = html.Div([
     html.Br(),
     html.Br(),
     
-    html.H4(oneGoalText, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    html.H3('Trends over the Years', style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    
+    html.Br(),
     
     html.Div([
-    
-        dcc.Graph(figure = oneGoalPlotT),
-        dcc.Graph(figure = oneGoalPlotB),
+        
+        dcc.Graph(figure = fig2),
+        
+        dcc.Graph(figure = assistYearPlot),
         
     ], style = {'display': 'flex', "justifyContent": "center"}),
+
     
 ], style={'margin': '20px'})
 
@@ -244,11 +250,10 @@ def TotalGoals(Name):
 )
 
 def bar_plot(selected_var):
-    bar_data = newIndex.groupby('Club', as_index=False)[selected_var].sum().sort_values(selected_var, ascending = True)
+    bar_data = newIndex.groupby('Club', as_index=False)[selected_var].sum()
     fig = px.bar(bar_data, x = 'Club' , y = selected_var, color=selected_var, title = selected_var + ' by Club')
     fig.update_layout(plot_bgcolor='rgba(0, 0, 0, 0)',paper_bgcolor='rgba(0,75,154,0.4)', font_color='white', title_x = 0.5)
     return fig
-
 
 ## initializing dash
 
