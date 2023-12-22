@@ -7,8 +7,8 @@ import dash_bootstrap_components as dbc
 
 ## reading data
 
-clubsDF = pd.read_csv('clubsDF.csv')
-newIndex = pd.read_csv('newIndex.csv')
+clubsDF = pd.read_csv('Datasets/clubsDF.csv')
+newIndex = pd.read_csv('Datasets/newIndex.csv')
 
 newIndexInt = newIndex.select_dtypes(include = 'int64')
 
@@ -87,10 +87,25 @@ PKGTotalScorers = str(PKGTotal) + ' penalty kick goals were scored in total. ' +
 
 ## at least one goal
 
-##oneGoal = newIndex[byIndex.G != 0].reset_index(drop=True).groupby(['Club', 'Player'], as_index=False)['G'].sum()
+oneGoal = newIndex[newIndex.G != 0].reset_index(drop=True).groupby(['Club', 'Player'], as_index=False)['G'].sum()['Club'].value_counts()
 
+oneGoaldfTop = oneGoal.reset_index().head(10)
+oneGoaldfBottom = oneGoal.reset_index().tail(10)
 
+oneGoalPlotT = px.pie(oneGoaldfTop, values = 'count', names = 'Club', title = 'Most Players with at least one Goal')
+oneGoalPlotT.update_layout(plot_bgcolor='rgba(0, 0, 0, 0)',paper_bgcolor='rgba(0,75,154,0.4)', font_color='white')
+oneGoalPlotT.update_traces(textinfo='value')
 
+oneGoalPlotB = px.pie(oneGoaldfBottom, values = 'count', names = 'Club', title = 'Least Players with at least one Goal')
+oneGoalPlotB.update_layout(plot_bgcolor='rgba(0, 0, 0, 0)',paper_bgcolor='rgba(0,75,154,0.4)', font_color='white')
+oneGoalPlotB.update_traces(textinfo='value')
+
+## at least one goal statement
+
+oneGoalTopTeam = oneGoal.idxmax()
+oneGoalTopCount = oneGoal.max()
+
+oneGoalText = str(oneGoalTopTeam) + ' had the most players with at least one goal, ' + str(oneGoalTopCount) + '.'
 
 
 ## dashboard components
@@ -110,20 +125,35 @@ initLayout = html.Div([
         dcc.Graph(figure = fig1),
         
         dcc.Graph(figure = fig2),
-        ], style = {'display': 'flex', "justifyContent": "center"}),
+        
+    ], style = {'display': 'flex', "justifyContent": "center"}),
 
     html.Br(),
     html.Br(),
     
     html.H3("Goals Scored by Player", style={'background' : 'rgba(255,255,0,0.4)'}),
-    dcc.Input(id = "name", type = "text", placeholder = "Enter player name..."),
-    html.Div(id = "output_message"),
+    
+    dcc.Dropdown(id = "name",
+        options = [{"label" : val, "value" : val} for val in newIndex['Player'].unique()],
+        value = newIndex['Player'].unique()[0],
+        style = {'color': 'black'},
+    ),
+    
+    html.Br(),
+    
+    html.Div(id = "output_message", style = {'fontSize' : '25px'},),
 
     html.Br(),
     html.Br(),
     
     html.H3('All Numeric Visualizations', style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
-    dcc.Dropdown(id = "x_axis", options = [{"label" : col, "value" : col} for col in newIndexInt.columns[1:]], value = newIndexInt.columns[1], style={'color': 'black'},),
+    
+    dcc.Dropdown(id = "x_axis",
+        options = [{"label" : col, "value" : col} for col in newIndexInt.columns[1:]],
+        value = newIndexInt.columns[1],
+        style={'color': 'black'},
+    ),
+    
     dcc.Graph(id = "plot"),
     
 ], style={'margin': '20px'})
@@ -154,6 +184,18 @@ assignLayout = html.Div([
     html.H4(PKGTotalScorers, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
     
     dcc.Graph(figure = playerPKGPlot),
+    
+    html.Br(),
+    html.Br(),
+    
+    html.H4(oneGoalText, style={'textAlign': 'center', 'background' : 'rgba(255,255,0,0.4)'}),
+    
+    html.Div([
+    
+        dcc.Graph(figure = oneGoalPlotT),
+        dcc.Graph(figure = oneGoalPlotB),
+        
+    ], style = {'display': 'flex', "justifyContent": "center"}),
     
 ], style={'margin': '20px'})
 
@@ -202,7 +244,6 @@ def TotalGoals(Name):
 )
 
 def bar_plot(selected_var):
-    #dupe_rem['Club'].value_counts().reset_index().head(7)
     bar_data = newIndex.groupby('Club', as_index=False)[selected_var].sum().sort_values(selected_var, ascending = True)
     fig = px.bar(bar_data, x = 'Club' , y = selected_var, color=selected_var, title = selected_var + ' by Club')
     fig.update_layout(plot_bgcolor='rgba(0, 0, 0, 0)',paper_bgcolor='rgba(0,75,154,0.4)', font_color='white', title_x = 0.5)
