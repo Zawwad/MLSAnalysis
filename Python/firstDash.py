@@ -7,8 +7,8 @@ import dash_bootstrap_components as dbc
 
 ## reading data
 
-clubsDF = pd.read_csv('Datasets/clubsDF.csv')
-newIndex = pd.read_csv('Datasets/newIndex.csv')
+clubsDF = pd.read_csv('../Datasets/clubsDF.csv')
+newIndex = pd.read_csv('../Datasets/newIndex.csv')
 
 newIndexInt = newIndex.select_dtypes(include = 'int64')
 

@@ -1,0 +1,318 @@
+---
+title: "MLS Dashboard R"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(plotly)
+library(shiny)
+```
+
+```{r}
+playersData = read_csv('../Datasets/newIndex.csv')
+playersData = playersData[,-1]
+```
+
+
+Customizable Charts
+=======================================================================
+
+row {.sidebar}
+-----------------------------------------------------------------------
+
+### Trend Line Input
+
+
+```{r}
+
+playersNumeric = select_if(playersData, is.numeric)
+
+varSelectizeInput('firstinput', 'Select y-axis variable', playersNumeric, selected = 'MINS')
+
+iovar = reactive({input$firstinput})
+
+```
+
+### Average of Selected Variable
+
+```{r}
+
+
+renderGauge({
+  
+  avg <- playersData %>% 
+    group_by(Year) %>% 
+    summarise(mean_value = mean(!!iovar(), na.rm = TRUE))
+  
+  gauge(
+    mean(avg$mean_value, na.rm = TRUE),
+    min(avg$mean_value, na.rm = TRUE),
+    max(avg$mean_value, na.rm = TRUE)
+    )
+
+})
+
+
+
+```
+
+
+### Year Input
+
+```{r}
+
+selectizeInput('secondinput', 'Select Year for SOG Club Averages', choices = unique(playersData$Year))
+
+ioyear = reactive({input$secondinput})
+
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+
+renderPlotly({
+  
+  byYear <- playersData %>% 
+    group_by(Year) %>% 
+    summarise(averages = mean(!!iovar()), .groups = 'keep') %>% 
+    ungroup()
+  
+  fig1 <- plot_ly(byYear, x = ~Year, y = ~round(averages, 2),
+                  type = 'scatter',
+                  mode = 'lines',
+                  text = ~round(averages, 2),
+                  marker = list(color = 'red'),
+                  line = list(color = 'pink')
+  ) %>% layout(title = "Averages over the Years",
+                          xaxis = list(title = "Year", color = 'royalblue'),
+                          yaxis = list(title = "Average", color = 'forestgreen'))
+  
+  fig1
+})
+
+```
+
+Row
+---
+
+### 
+
+```{r}
+
+renderPlotly({
+  
+  byYearSOG = playersData %>%
+    group_by(Club, Year) %>%
+    summarise(averagesSOG = mean(`SOG%`)) %>%
+    filter(Year == !!ioyear()) %>%
+    filter(averagesSOG > 0)
+  
+  
+  attach(byYearSOG)
+  
+  fig1 = plot_ly(byYearSOG, x=Club, y = round(averagesSOG, 2),
+              type = 'bar',
+              text = round(averagesSOG, 2),
+              marker = list(color= 'dodgerblue')
+              )
+  fig1 = fig1 %>% layout(title = "Club Average Shots on Goal Percentages",
+         xaxis = list(title = "Club", color = 'royalblue'),
+         yaxis = list(title = "Shots on Goal Percentage", color = 'forestgreen'))
+  
+  fig1
+})
+
+```
+
+Goals and Assists
+=======================================================================
+
+Row
+---
+
+
+### Total Overall Goals
+
+```{r}
+
+goalsPie <- playersData %>% 
+  group_by(Player) %>% 
+  summarise(gsum = sum(G)) %>% 
+  arrange(desc(gsum))
+
+goalsPie <- head(goalsPie, 15)
+
+fig <- plot_ly(goalsPie, labels = ~Player, values = ~gsum, type = 'pie')
+
+fig
+
+
+```
+
+
+### Total Overall Assists
+
+```{r}
+
+assistsPie <- playersData %>% 
+  group_by(Player) %>% 
+  summarise(asum = sum(A)) %>% 
+  arrange(desc(asum))
+
+assistsPie <- head(assistsPie, 15)
+
+fig <- plot_ly(assistsPie, labels = ~Player, values = ~asum, type = 'pie')
+
+fig
+
+```
+
+
+Row
+---
+
+###
+
+```{r}
+
+byYearGA = playersData %>% 
+  group_by(Year) %>% 
+  summarise(across(c(G, A), sum, .names = "{col}Sum"))
+
+
+GATrend = plot_ly(byYearGA, x=~Year, y = ~GSum, name = 'Goals', type = 'scatter', mode = 'lines+markers')
+GATrend = GATrend %>% add_trace(y = ~ASum, name = 'Assists', type = 'scatter', mode = 'lines+markers')
+
+GATrend = GATrend %>% layout(title = "Goals and Assists over the Years",
+                       xaxis = list(title = "Year", color = '#2E2E2E'),
+                       yaxis = list(title = "Sum for Goals and Assists",
+                                    color = '#228B22')
+                              )
+
+GATrend
+
+```
+
+
+Dynamic Filter Charts
+=======================================================================
+
+Row {data-height=100}
+-------------------------------------
+
+```{r}
+
+uniqueClubs = playersData %>% 
+  group_by(Club) %>% 
+  filter(MINS > 0) %>% 
+  select(Club)
+
+selectInput('clubinput', 'Select Club', unique(uniqueClubs), selected = 'CHI')
+
+```
+
+
+###
+```{r}
+
+minmaxG = playersData %>% 
+  group_by(Player) %>% 
+  summarise(gs = sum(G))
+
+sliderInput(
+  "goalslider", "Choose minimum goals scored", min(minmaxG$gs), 100, 1
+)
+```
+
+###
+```{r}
+minmaxMINS = playersData %>% 
+  group_by(Player) %>% 
+  summarise(mins = sum(MINS))
+
+sliderInput(
+  "MINSslider", "Choose minimum minutes played", min(minmaxMINS$mins), 5000, 90
+)
+
+```
+
+Row {data-height=300}
+-------------------------------------
+
+###
+
+```{r}
+
+renderPlotly({
+  
+  accuracy = playersData %>% 
+    group_by(Year) %>% 
+    filter(Club == input$clubinput) %>%
+    filter(MINS > 0) %>% 
+    summarise(meanSOG = mean(`SOG%`)) %>% 
+    ungroup()
+  
+  accPlot = plot_ly(accuracy, x = ~Year, y = ~round(meanSOG, 2),
+               type = 'scatter',
+               mode = 'lines',
+               text = ~round(meanSOG, 2),
+               line = list(color = 'violet')
+               )
+  
+  accPlot = accPlot %>% layout(title = "Shots on Goal Percentage over the Years",
+                       xaxis = list(title = "Year", color = '#2E2E2E'),
+                       yaxis = list(title = "Average Shots on Goal Percentage",
+                                    color = '#228B22')
+                              )
+
+  accPlot
+  
+})
+
+```
+
+Row {data-height=300}
+-------------------------------------
+
+### 
+
+```{r}
+
+renderPlotly({
+  
+goalsNinety = playersData %>%
+  group_by(Player) %>%
+  filter(sum(MINS) >= input$MINSslider) %>%
+  filter(sum(G) >= input$goalslider) %>%
+  summarise(meanNinety = mean(`G/90min`)) %>%
+  arrange(meanNinety) %>% 
+  top_n(25, meanNinety)
+
+fig4 = plot_ly(goalsNinety, x = ~Player, y = ~round(meanNinety, 2),
+               type = 'bar',
+               text = ~round(meanNinety, 2),
+               marker = list(color = '#FFD700')  # Gold color
+              )
+
+fig4 = fig4 %>% layout(title = "Goals per Ninety Minutes by Players",
+                       xaxis = list(title = "Player", color = '#2E2E2E'),
+                       yaxis = list(title = "Average Goals per Ninety", color = '#228B22')
+                      )
+
+fig4
+
+})
+```
